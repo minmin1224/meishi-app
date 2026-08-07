@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>名刺管理 - 撮影するだけでOCR自動入力、50音順に整理</title>
 <meta name="description" content="スマホで名刺を撮影するだけでOCRが氏名・会社名・連絡先を自動入力。50音順・氏名順・会社名順で整理できる無料の名刺管理アプリ。インストール不要、ブラウザだけで使えます。">
+<link rel="icon" href="./app/icons/icon-192.png">
 <style>
   :root {
     --bg: #0f1420;
@@ -31,7 +32,7 @@
 
   header.site { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
   header.site .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; }
-  header.site .brand .emoji { font-size: 22px; }
+  header.site .brand img { width: 28px; height: 28px; border-radius: 8px; }
 
   .hero { padding: 56px 0 48px; text-align: center; }
   .hero h1 { font-size: clamp(26px, 5vw, 40px); margin: 0 0 16px; font-weight: 800; letter-spacing: 0.01em; }
@@ -101,6 +102,16 @@
   .final-cta h2 { margin: 0 0 12px; font-size: 22px; }
   .final-cta p { margin: 0 0 26px; color: var(--sub); }
 
+  .install-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+  .install-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; }
+  .install-card h3 { margin: 0 0 14px; font-size: 15px; color: var(--accent); }
+  .install-card ol { margin: 0; padding-left: 20px; color: var(--sub); font-size: 13.5px; }
+  .install-card li { margin-bottom: 8px; }
+  .install-card li:last-child { margin-bottom: 0; }
+
+  .feature-link { display: inline-block; margin-top: 10px; color: var(--accent); font-size: 12.5px; font-weight: 700; text-decoration: none; }
+  .feature-link:hover { text-decoration: underline; }
+
   .note {
     max-width: 660px; margin: 0 auto; text-align: center; color: var(--sub); font-size: 13px;
     background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px;
@@ -113,7 +124,7 @@
 
   <header class="site">
     <div class="wrap brand">
-      <span class="emoji">📇</span>
+      <img src="./app/icons/icon-192.png" alt="名刺管理アイコン">
       <span>名刺管理</span>
     </div>
   </header>
@@ -157,6 +168,12 @@
           <div class="icon">🔗</div>
           <h3>重複を統合</h3>
           <p>同じ名前の名刺を追加しようとすると確認画面が表示され、既存データに統合するか選べます。</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">📱</div>
+          <h3>ホーム画面に追加(PWA)</h3>
+          <p>スマホのホーム画面に追加すれば、アプリのように起動できます。ブラウザのアドレスバーが表示されず、アプリらしい見た目で使えます。</p>
+          <a class="feature-link" href="#install">追加のやり方を見る →</a>
         </div>
         <div class="feature-card">
           <div class="icon">💾</div>
@@ -225,6 +242,38 @@
           <p>50音順・氏名順・会社名順に切り替えて、必要な名刺をすぐに見つけられます。</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2 class="section-title">ホーム画面への追加方法</h2>
+      <p style="text-align:center; color: var(--sub); font-size: 13.5px; max-width: 560px; margin: -16px auto 32px;">
+        名刺管理はPWA(Progressive Web App)対応です。ホーム画面に追加すると、アイコンをタップするだけでブラウザのアドレスバーなしにアプリのように起動でき、簡単な内容はオフラインでも開けるようになります。
+      </p>
+      <div class="install-grid">
+        <div class="install-card">
+          <h3>Androidの場合(Chrome)</h3>
+          <ol>
+            <li>Chromeでアプリを開く</li>
+            <li>右上の「⋮」メニューをタップ</li>
+            <li>「アプリをインストール」または「ホーム画面に追加」をタップ</li>
+            <li>表示名を確認して「インストール」</li>
+          </ol>
+        </div>
+        <div class="install-card">
+          <h3>iPhoneの場合(Safari)</h3>
+          <ol>
+            <li>Safari(他のブラウザ不可)でアプリを開く</li>
+            <li>共有アイコン(四角に上矢印)をタップ</li>
+            <li>「ホーム画面に追加」を選択</li>
+            <li>右上の「追加」をタップ</li>
+          </ol>
+        </div>
+      </div>
+      <p class="note" style="margin-top: 24px;">
+        ホーム画面のアイコンから開いた場合も、名刺の撮影やOCRの読み取り自体はその都度カメラ・インターネットへのアクセスが必要です(保存済みの一覧の閲覧のみオフラインでも可能です)。
+      </p>
     </div>
   </section>
 
