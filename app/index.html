@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>名刺管理</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1420;
+    --panel: #1a2233;
+    --panel2: #232d42;
+    --border: #2a344a;
+    --accent: #5b8def;
+    --accent-dim: #3a5da8;
+    --text: #e8ecf4;
+    --text-dim: #8b95ab;
+    --danger: #ef5350;
+    --success: #3ddc97;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif;
+  }
+  #app { display: flex; flex-direction: column; height: 100vh; max-width: 560px; margin: 0 auto; }
+
+  header {
+    flex: none; padding: 14px 16px 10px; background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0 0 10px; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+  .search-box {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 12px;
+  }
+  .search-box input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 15px;
+  }
+  .search-box input::placeholder { color: var(--text-dim); }
+  .search-clear { color: var(--text-dim); cursor: pointer; font-size: 14px; padding: 2px 4px; }
+
+  .sort-bar {
+    flex: none; display: flex; align-items: center; gap: 6px;
+    padding: 10px 16px; overflow-x: auto; border-bottom: 1px solid var(--border);
+  }
+  .sort-tab {
+    flex: none; background: var(--panel); border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 999px; padding: 6px 14px; font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  .sort-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .sort-dir {
+    margin-left: auto; flex: none; background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px;
+  }
+
+  main { flex: 1; overflow-y: auto; padding: 12px 16px 100px; }
+  .count-label { color: var(--text-dim); font-size: 12px; margin: 4px 2px 10px; }
+
+  .empty-state {
+    text-align: center; color: var(--text-dim); padding: 60px 20px; font-size: 14px; line-height: 1.8;
+  }
+  .empty-state .big { font-size: 40px; margin-bottom: 12px; }
+
+  .card {
+    display: flex; gap: 12px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px; margin-bottom: 10px; cursor: pointer; align-items: center;
+  }
+  .card:active { background: var(--panel2); }
+  .card .thumb {
+    flex: none; width: 56px; height: 56px; border-radius: 8px; object-fit: cover;
+    background: var(--panel2); border: 1px solid var(--border);
+  }
+  .card .thumb.placeholder { display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .card .info { flex: 1; min-width: 0; }
+  .card .name-row { display: flex; align-items: baseline; gap: 8px; }
+  .card .name { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .kana { font-size: 11px; color: var(--text-dim); }
+  .card .company { font-size: 13px; color: var(--accent); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .fab-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; max-width: 560px; margin: 0 auto;
+    display: flex; gap: 8px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--bg) 60%, transparent);
+  }
+  .btn {
+    flex: 1; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+  .btn:active { filter: brightness(0.9); }
+  .btn:disabled { opacity: 0.5; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end;
+    justify-content: center; z-index: 100;
+  }
+  .modal {
+    background: var(--bg); width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto;
+    border-radius: 16px 16px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+  }
+  .modal.center {
+    border-radius: 16px; max-width: 400px; margin: 0 12px;
+  }
+  .modal h2 { margin: 0 0 14px; font-size: 17px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+  .field input, .field textarea {
+    width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; color: var(--text); font-size: 15px; outline: none;
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+  .field-row { display: flex; gap: 8px; }
+  .field-row .field { flex: 1; }
+
+  .photo-preview {
+    width: 100%; max-height: 220px; object-fit: contain; border-radius: 10px;
+    background: var(--panel); margin-bottom: 14px; border: 1px solid var(--border);
+  }
+
+  .ocr-progress {
+    display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 20px 4px;
+  }
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .progress-bar-track {
+    width: 100%; height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden;
+  }
+  .progress-bar-fill { height: 100%; background: var(--accent); transition: width 0.2s; }
+  .progress-text { font-size: 13px; color: var(--text-dim); }
+
+  .detail-row { display: flex; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .detail-row .label { flex: none; width: 90px; color: var(--text-dim); }
+  .detail-row .value { flex: 1; white-space: pre-wrap; word-break: break-word; }
+  .detail-row .value a { color: var(--accent); }
+  .detail-photo { width: 100%; border-radius: 10px; margin-bottom: 14px; border: 1px solid var(--border); }
+
+  .section-label { font-size: 11px; color: var(--text-dim); margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .section-label:first-child { margin-top: 0; }
+
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<input type="file" id="cameraInput" accept="image/*" capture="environment">
+
+<script>
+'use strict';
+
+const STORAGE_KEY = 'meishi-app-state-v1';
+
+let state = {
+  cards: [],
+  sortKey: 'kana',   // 'kana' | 'name' | 'company'
+  sortAsc: true,
+  search: '',
+};
+
+let ui = {
+  modal: null,        // null | 'capture' | 'form' | 'detail' | 'deleteConfirm' | 'mergeConfirm'
+  ocrStatus: null,     // { pct, label }
+  pendingPhoto: null,  // resized dataURL of photo being processed
+  formData: null,      // card object being edited (draft)
+  isNewCard: false,
+  detailId: null,
+  pendingFormData: null, // 同名重複が見つかった際に保存待ちのカード
+  duplicateId: null,     // 統合対象となる既存カードのid
+};
+
+function uid() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.cards)) state.cards = parsed.cards;
+    }
+  } catch (e) { console.error('load failed', e); }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ cards: state.cards }));
+  } catch (e) { console.error('save failed', e); alert('保存に失敗しました(容量不足の可能性があります)'); }
+}
+
+function blankCard() {
+  return {
+    id: uid(), photo: '', name: '', nameKana: '', company: '', companyKana: '',
+    department: '', title: '', tel: '', mobile: '', fax: '', email: '', url: '',
+    address: '', memo: '', createdAt: Date.now(), updatedAt: Date.now(),
+  };
+}
+
+// ---------- 画像処理 ----------
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function resizeImage(dataUrl, maxSize, quality) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxSize || h > maxSize) {
+        if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+        else { w = Math.round(w * maxSize / h); h = maxSize; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = dataUrl;
+  });
+}
+
+// OCR認識率を上げるための前処理: グレースケール化 + コントラストの最大化(最小輝度〜最大輝度を0〜255に引き伸ばす)。
+// 表示用の写真(カラー)はそのまま残し、OCRに渡す画像だけをこの関数で加工する。
+function preprocessForOcr(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imageData.data;
+      const gray = new Uint8ClampedArray(d.length / 4);
+      let min = 255, max = 0;
+      for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+        const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        gray[p] = g;
+        if (g < min) min = g;
+        if (g > max) max = g;
+      }
+      const range = Math.max(1, max - min);
+      for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+        const stretched = Math.round((gray[p] - min) / range * 255);
+        d[i] = d[i + 1] = d[i + 2] = stretched;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL('image/jpeg', 0.92));
+    };
+    img.src = dataUrl;
+  });
+}
+
+// ---------- OCR 解析 ----------
+function parseOcrText(text) {
+  const rawLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const result = { name: '', nameKana: '', company: '', department: '', title: '', tel: '', mobile: '', fax: '', email: '', url: '', address: '', memo: text.trim() };
+  const used = new Set();
+
+  // OCRは漢字の間に余計な空白を入れてしまうことがあるため、キーワード判定は
+  // 空白を除いた「圧縮版」の行に対して行い、誤って検出漏れしないようにする
+  const compactLines = rawLines.map(l => l.replace(/\s+/g, ''));
+
+  const emailRe = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+  const urlRe = /(https?:\/\/[^\s]+|www\.[^\s]+)/i;
+  const telRe = /0\d{1,4}[-−ー]?\d{1,4}[-−ー]?\d{3,4}/g;
+  const companyKw = /(株式会社|有限会社|合同会社|合資会社|一般社団法人|公益財団法人|財団法人|一般財団法人|特定非営利活動法人|Co\.,?\s?Ltd\.?|Corporation|Corp\.|Inc\.|LLC|LLP|K\.K\.|商事|商会|工業|興業|製作所|Group|Holdings)/i;
+  const titleKw = /(代表取締役|取締役|執行役員|部長|課長|係長|主任|マネージャー|Manager|Director|President|CEO|CTO|COO|支店長|所長|室長|次長|理事|顧問)/i;
+  const deptKw = /(部|課|室|グループ|チーム|事業部|本部)$/;
+  // ひらがな/カタカナのみで構成された行(数字・漢字・記号を含まない) = ふりがなの可能性が高い
+  const kanaOnlyRe = /^[ぁ-んァ-ヶーゝゞ\s]+$/;
+  // 〒マークが無い限り、電話番号の一部(例: 090-1234-5678)を郵便番号と誤認識しないよう厳格にする
+  const zipKw = /〒\s*\d{3}-?\d{4}/;
+
+  // 数字の羅列(電話番号・住所などが連結された行)の中から、前後が数字でない
+  // 独立した電話番号らしき部分だけを取り出す(郵便番号や番地との誤マッチを防ぐ)
+  function extractPhone(line) {
+    telRe.lastIndex = 0;
+    let m;
+    while ((m = telRe.exec(line))) {
+      const before = line[m.index - 1];
+      const after = line[m.index + m[0].length];
+      if (!/\d/.test(before || '') && !/\d/.test(after || '')) return m[0];
+    }
+    return null;
+  }
+  const prefKw = /(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)/;
+
+  rawLines.forEach((line, i) => {
+    if (used.has(i)) return;
+    const m = line.match(emailRe);
+    if (m && !result.email) { result.email = m[0]; used.add(i); return; }
+  });
+  rawLines.forEach((line, i) => {
+    if (used.has(i)) return;
+    const m = line.match(urlRe);
+    if (m && !result.url) {
+      let u = m[0];
+      if (!/^https?:\/\//i.test(u)) u = 'http://' + u;
+      result.url = u; used.add(i); return;
+    }
+  });
+  rawLines.forEach((line, i) => {
+    if (used.has(i)) return;
+    if (/FAX|ＦＡＸ/i.test(line)) {
+      const m = extractPhone(line);
+      if (m && !result.fax) { result.fax = m; used.add(i); return; }
+    }
+  });
+  // 携帯/固定の判定は「携帯」等のラベルではなく、番号そのもの(070/080/090始まり=携帯)で行う
+  rawLines.forEach((line, i) => {
+    if (used.has(i)) return;
+    const m = extractPhone(line);
+    if (!m) return;
+    const digits = m.replace(/[-−ー]/g, '');
+    const isMobile = /^0[789]0/.test(digits);
+    if (isMobile && !result.mobile) { result.mobile = m; used.add(i); return; }
+    if (!isMobile && !result.tel) { result.tel = m; used.add(i); return; }
+  });
+  rawLines.forEach((line, i) => {
+    if (used.has(i)) return;
+    if (companyKw.test(compactLines[i]) && !result.company) { result.company = line; used.add(i); return; }
+  });
+  rawLines.forEach((line, i) => {
+    if (used.has(i)) return;
+    if (titleKw.test(compactLines[i]) && !result.title) { result.title = line; used.add(i); return; }
+  });
+  const addrLines = [];
+  rawLines.forEach((line, i) => {
+    if (used.has(i)) return;
+    if (zipKw.test(line) || prefKw.test(line)) { addrLines.push(line); used.add(i); }
+  });
+  if (addrLines.length) result.address = addrLines.join(' ');
+  rawLines.forEach((line, i) => {
+    if (used.has(i)) return;
+    if (deptKw.test(compactLines[i]) && compactLines[i].length <= 12 && !result.department) { result.department = line; used.add(i); return; }
+  });
+
+  // 氏名の上下に小さく印字されていることが多い「ふりがな」候補を先に集めておく
+  // (氏名候補の抽出より先に行うことで、ふりがな行が誤って氏名として選ばれるのを防ぐ)
+  const kanaCandidates = [];
+  rawLines.forEach((line, i) => {
+    if (used.has(i)) return;
+    const clean = line.replace(/\s/g, '');
+    if (clean.length >= 2 && clean.length <= 14 && kanaOnlyRe.test(line)) {
+      kanaCandidates.push({ i, line: line.trim() });
+    }
+  });
+
+  // 残った行から氏名を推測: 短め(2〜10文字)・記号少なめ・スペース区切りを優先(ふりがな候補は除外)
+  const candidates = [];
+  rawLines.forEach((line, i) => {
+    if (used.has(i)) return;
+    if (kanaCandidates.some(k => k.i === i)) return;
+    const clean = line.replace(/\s/g, '');
+    if (clean.length >= 2 && clean.length <= 12 && !/[0-9@/:]/.test(clean)) {
+      candidates.push({ i, line, score: /\s/.test(line) ? 2 : 1, len: clean.length });
+    }
+  });
+  if (candidates.length) {
+    candidates.sort((a, b) => b.score - a.score || a.len - b.len);
+    const chosen = candidates[0];
+    result.name = chosen.line;
+    used.add(chosen.i);
+
+    if (kanaCandidates.length) {
+      // 氏名の行に最も近い位置にあるふりがな候補を採用する
+      kanaCandidates.sort((a, b) => Math.abs(a.i - chosen.i) - Math.abs(b.i - chosen.i));
+      result.nameKana = kanaCandidates[0].line;
+      used.add(kanaCandidates[0].i);
+    }
+  } else if (kanaCandidates.length) {
+    result.nameKana = kanaCandidates[0].line;
+    used.add(kanaCandidates[0].i);
+  }
+
+  return result;
+}
+
+// ---------- ソート・検索 ----------
+function getSortKeyValue(card, key) {
+  if (key === 'kana') return card.nameKana || card.name || '';
+  if (key === 'name') return card.name || '';
+  if (key === 'company') return card.companyKana || card.company || '';
+  return '';
+}
+
+function getVisibleCards() {
+  const collator = new Intl.Collator('ja');
+  let list = state.cards.slice();
+  const q = state.search.trim().toLowerCase();
+  if (q) {
+    list = list.filter(c => {
+      const hay = [c.name, c.nameKana, c.company, c.companyKana, c.department, c.title, c.tel, c.mobile, c.email, c.memo]
+        .join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  list.sort((a, b) => collator.compare(getSortKeyValue(a, state.sortKey), getSortKeyValue(b, state.sortKey)));
+  if (!state.sortAsc) list.reverse();
+  return list;
+}
+
+// ---------- レンダリング ----------
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function buildSortTabsHtml() {
+  return [
+    { key: 'kana', label: '50音順' },
+    { key: 'name', label: '氏名順' },
+    { key: 'company', label: '会社名順' },
+  ].map(t => `<button class="sort-tab ${state.sortKey === t.key ? 'active' : ''}" data-sort="${t.key}">${t.label}</button>`).join('')
+    + `<button class="sort-dir" id="sortDirBtn">${state.sortAsc ? '▲ 昇順' : '▼ 降順'}</button>`;
+}
+
+function buildListHtml(visible) {
+  if (visible.length === 0) {
+    return state.cards.length === 0
+      ? `<div class="empty-state"><div class="big">📇</div>まだ名刺が登録されていません。<br>下のボタンから撮影して追加しましょう。</div>`
+      : `<div class="empty-state"><div class="big">🔍</div>該当する名刺が見つかりません。</div>`;
+  }
+  return `<div class="count-label">${visible.length}件</div>` + visible.map(c => `
+    <div class="card" data-open="${c.id}">
+      ${c.photo ? `<img class="thumb" src="${c.photo}">` : `<div class="thumb placeholder">🏢</div>`}
+      <div class="info">
+        <div class="name-row">
+          <span class="name">${escapeHtml(c.name) || '(氏名未入力)'}</span>
+          ${c.nameKana ? `<span class="kana">${escapeHtml(c.nameKana)}</span>` : ''}
+        </div>
+        ${c.company ? `<div class="company">${escapeHtml(c.company)}</div>` : ''}
+        <div class="sub">${[c.title, c.tel, c.email].filter(Boolean).map(escapeHtml).join(' ・ ')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// 検索ボックスの入力(特にIME変換中)でinput要素自体を作り直すと、
+// 日本語入力の変換が中断されてしまうため、一覧部分(#sortBar, #mainEl)だけを
+// 差し替えるrenderList()と、アプリ全体を組み立てるrender()を分けている。
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <header>
+      <h1>📇 名刺管理</h1>
+      <div class="search-box">
+        <span>🔍</span>
+        <input id="searchInput" type="text" placeholder="氏名・会社名で検索" value="${escapeHtml(state.search)}">
+        <span class="search-clear" id="searchClear" style="display:${state.search ? 'inline' : 'none'}">✕</span>
+      </div>
+    </header>
+    <div class="sort-bar" id="sortBar"></div>
+    <main id="mainEl"></main>
+    <div class="fab-bar">
+      <button class="btn btn-secondary" id="manualAddBtn">✏️ 手動で入力</button>
+      <button class="btn btn-primary" id="captureBtn">📷 名刺を撮影/選択</button>
+    </div>
+  `;
+
+  bindHeaderAndFabEvents();
+  renderList();
+  renderModal();
+}
+
+function renderList() {
+  const visible = getVisibleCards();
+  document.getElementById('sortBar').innerHTML = buildSortTabsHtml();
+  document.getElementById('mainEl').innerHTML = buildListHtml(visible);
+  bindListEvents();
+}
+
+function renderModal() {
+  let existing = document.getElementById('modalRoot');
+  if (existing) existing.remove();
+  if (!ui.modal) return;
+
+  const root = document.createElement('div');
+  root.id = 'modalRoot';
+
+  if (ui.modal === 'capture') {
+    root.innerHTML = `
+      <div class="modal-overlay" id="overlayClose">
+        <div class="modal center" onclick="event.stopPropagation()">
+          <h2>文字を読み取っています…</h2>
+          ${ui.pendingPhoto ? `<img class="photo-preview" src="${ui.pendingPhoto}">` : ''}
+          <div class="ocr-progress">
+            <div class="spinner"></div>
+            <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${ui.ocrStatus ? Math.round(ui.ocrStatus.pct * 100) : 0}%"></div></div>
+            <div class="progress-text">${ui.ocrStatus ? ui.ocrStatus.label : '準備中…'}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (ui.modal === 'form') {
+    const f = ui.formData;
+    root.innerHTML = `
+      <div class="modal-overlay" id="overlayClose">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h2>${ui.isNewCard ? '名刺を追加' : '名刺を編集'}</h2>
+          ${f.photo ? `<img class="photo-preview" src="${f.photo}">` : ''}
+          <div class="section-label">氏名</div>
+          <div class="field-row">
+            <div class="field"><label>氏名</label><input id="f_name" value="${escapeHtml(f.name)}" placeholder="山田 太郎"></div>
+            <div class="field"><label>ふりがな(かな)</label><input id="f_nameKana" value="${escapeHtml(f.nameKana)}" placeholder="やまだ たろう"></div>
+          </div>
+          <div class="section-label">会社</div>
+          <div class="field-row">
+            <div class="field"><label>会社名</label><input id="f_company" value="${escapeHtml(f.company)}" placeholder="株式会社サンプル"></div>
+            <div class="field"><label>会社名ふりがな</label><input id="f_companyKana" value="${escapeHtml(f.companyKana)}" placeholder="さんぷる"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>部署</label><input id="f_department" value="${escapeHtml(f.department)}"></div>
+            <div class="field"><label>役職</label><input id="f_title" value="${escapeHtml(f.title)}"></div>
+          </div>
+          <div class="section-label">連絡先</div>
+          <div class="field-row">
+            <div class="field"><label>電話番号</label><input id="f_tel" value="${escapeHtml(f.tel)}"></div>
+            <div class="field"><label>携帯電話</label><input id="f_mobile" value="${escapeHtml(f.mobile)}"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>FAX</label><input id="f_fax" value="${escapeHtml(f.fax)}"></div>
+            <div class="field"><label>メールアドレス</label><input id="f_email" value="${escapeHtml(f.email)}"></div>
+          </div>
+          <div class="field"><label>Webサイト</label><input id="f_url" value="${escapeHtml(f.url)}"></div>
+          <div class="field"><label>住所</label><input id="f_address" value="${escapeHtml(f.address)}"></div>
+          <div class="section-label">メモ</div>
+          <div class="field"><textarea id="f_memo" placeholder="OCR結果全文やメモ">${escapeHtml(f.memo)}</textarea></div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" id="formCancelBtn">キャンセル</button>
+            <button class="btn btn-primary" id="formSaveBtn">保存</button>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (ui.modal === 'detail') {
+    const c = state.cards.find(x => x.id === ui.detailId);
+    if (!c) { ui.modal = null; return; }
+    const rows = [
+      ['ふりがな', c.nameKana], ['会社名', c.company], ['会社ふりがな', c.companyKana],
+      ['部署', c.department], ['役職', c.title], ['電話', c.tel], ['携帯', c.mobile],
+      ['FAX', c.fax], ['メール', c.email && `<a href="mailto:${c.email}">${escapeHtml(c.email)}</a>`],
+      ['Web', c.url && `<a href="${c.url}" target="_blank" rel="noopener">${escapeHtml(c.url)}</a>`],
+      ['住所', c.address], ['メモ', c.memo],
+    ].filter(([, v]) => v);
+    root.innerHTML = `
+      <div class="modal-overlay" id="overlayClose">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h2>${escapeHtml(c.name) || '(氏名未入力)'}</h2>
+          ${c.photo ? `<img class="detail-photo" src="${c.photo}">` : ''}
+          ${rows.map(([label, value]) => `<div class="detail-row"><div class="label">${label}</div><div class="value">${typeof value === 'string' && value.startsWith('<a') ? value : escapeHtml(value)}</div></div>`).join('')}
+          <div class="modal-actions">
+            <button class="btn btn-danger" id="deleteBtn">削除</button>
+            <button class="btn btn-secondary" id="editBtn">編集</button>
+            <button class="btn btn-ghost" id="closeDetailBtn">閉じる</button>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (ui.modal === 'deleteConfirm') {
+    root.innerHTML = `
+      <div class="modal-overlay" id="overlayCloseDelete">
+        <div class="modal center" onclick="event.stopPropagation()">
+          <h2>この名刺を削除しますか?</h2>
+          <p style="color:var(--text-dim); font-size:14px;">この操作は取り消せません。</p>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" id="cancelDeleteBtn">キャンセル</button>
+            <button class="btn btn-danger" id="confirmDeleteBtn">削除する</button>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (ui.modal === 'mergeConfirm') {
+    const dup = state.cards.find(c => c.id === ui.duplicateId);
+    const name = escapeHtml((ui.pendingFormData && ui.pendingFormData.name) || '');
+    const dupCompany = dup && dup.company ? `(${escapeHtml(dup.company)})` : '';
+    root.innerHTML = `
+      <div class="modal-overlay" id="overlayCloseMerge">
+        <div class="modal center" onclick="event.stopPropagation()">
+          <h2>同じ名前の名刺があります</h2>
+          <p style="color:var(--text-dim); font-size:14px; line-height:1.7;">「${name}」${dupCompany} という名刺が既に登録されています。既存のデータに統合しますか?</p>
+          <div class="modal-actions" style="flex-direction: column;">
+            <button class="btn btn-primary" id="mergeBtn">統合する</button>
+            <button class="btn btn-secondary" id="saveSeparateBtn">別々に保存する</button>
+            <button class="btn btn-ghost" id="cancelMergeBtn">キャンセル(編集に戻る)</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  document.body.appendChild(root);
+  bindModalEvents();
+}
+
+// ---------- イベント ----------
+function bindHeaderAndFabEvents() {
+  const searchInput = document.getElementById('searchInput');
+  const searchClear = document.getElementById('searchClear');
+  searchInput.addEventListener('input', (e) => {
+    state.search = e.target.value;
+    searchClear.style.display = state.search ? 'inline' : 'none';
+    renderList();
+  });
+  searchClear.addEventListener('click', () => {
+    state.search = '';
+    searchInput.value = '';
+    searchClear.style.display = 'none';
+    renderList();
+    searchInput.focus();
+  });
+
+  document.getElementById('captureBtn').addEventListener('click', () => {
+    document.getElementById('cameraInput').click();
+  });
+  document.getElementById('manualAddBtn').addEventListener('click', () => {
+    ui.formData = blankCard();
+    ui.isNewCard = true;
+    ui.modal = 'form';
+    renderModal();
+  });
+}
+
+function bindListEvents() {
+  document.querySelectorAll('.sort-tab').forEach(btn => {
+    btn.addEventListener('click', () => { state.sortKey = btn.dataset.sort; renderList(); });
+  });
+  document.getElementById('sortDirBtn').addEventListener('click', () => { state.sortAsc = !state.sortAsc; renderList(); });
+
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', () => { ui.modal = 'detail'; ui.detailId = card.dataset.open; renderModal(); });
+  });
+}
+
+function bindModalEvents() {
+  const overlay = document.getElementById('overlayClose');
+  if (overlay) overlay.addEventListener('click', () => {
+    if (ui.modal === 'capture') return; // OCR中は閉じさせない
+    ui.modal = null; renderModal();
+  });
+  const overlayDelete = document.getElementById('overlayCloseDelete');
+  if (overlayDelete) overlayDelete.addEventListener('click', () => { ui.modal = 'detail'; renderModal(); });
+
+  const formSaveBtn = document.getElementById('formSaveBtn');
+  if (formSaveBtn) formSaveBtn.addEventListener('click', saveForm);
+  const formCancelBtn = document.getElementById('formCancelBtn');
+  if (formCancelBtn) formCancelBtn.addEventListener('click', () => { ui.modal = null; ui.formData = null; renderModal(); });
+
+  const editBtn = document.getElementById('editBtn');
+  if (editBtn) editBtn.addEventListener('click', () => {
+    const c = state.cards.find(x => x.id === ui.detailId);
+    ui.formData = Object.assign({}, c);
+    ui.isNewCard = false;
+    ui.modal = 'form';
+    renderModal();
+  });
+  const deleteBtn = document.getElementById('deleteBtn');
+  if (deleteBtn) deleteBtn.addEventListener('click', () => { ui.modal = 'deleteConfirm'; renderModal(); });
+  const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+  if (cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', () => { ui.modal = 'detail'; renderModal(); });
+  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+  if (confirmDeleteBtn) confirmDeleteBtn.addEventListener('click', () => {
+    state.cards = state.cards.filter(x => x.id !== ui.detailId);
+    saveState();
+    ui.modal = null; ui.detailId = null;
+    render();
+  });
+  const closeDetailBtn = document.getElementById('closeDetailBtn');
+  if (closeDetailBtn) closeDetailBtn.addEventListener('click', () => { ui.modal = null; renderModal(); });
+
+  const overlayMerge = document.getElementById('overlayCloseMerge');
+  if (overlayMerge) overlayMerge.addEventListener('click', () => { ui.modal = 'form'; renderModal(); });
+  const mergeBtn = document.getElementById('mergeBtn');
+  if (mergeBtn) mergeBtn.addEventListener('click', () => {
+    const dup = state.cards.find(c => c.id === ui.duplicateId);
+    const merged = mergeCards(dup, ui.pendingFormData);
+    const dupIdx = state.cards.findIndex(c => c.id === dup.id);
+    state.cards[dupIdx] = merged;
+    if (!ui.isNewCard) {
+      state.cards = state.cards.filter(c => c.id !== ui.pendingFormData.id || c.id === dup.id);
+    }
+    saveState();
+    ui.modal = null; ui.formData = null; ui.pendingFormData = null; ui.duplicateId = null;
+    render();
+  });
+  const saveSeparateBtn = document.getElementById('saveSeparateBtn');
+  if (saveSeparateBtn) saveSeparateBtn.addEventListener('click', () => { commitSave(ui.pendingFormData); });
+  const cancelMergeBtn = document.getElementById('cancelMergeBtn');
+  if (cancelMergeBtn) cancelMergeBtn.addEventListener('click', () => { ui.modal = 'form'; renderModal(); });
+}
+
+function findDuplicateByName(name, excludeId) {
+  const n = (name || '').trim();
+  if (!n) return null;
+  return state.cards.find(c => c.id !== excludeId && (c.name || '').trim() === n) || null;
+}
+
+// 既存カードのフィールドを土台に、新しいカードの空でない項目で上書きする。
+// メモは情報が失われないよう両方を連結して残す。
+function mergeCards(existing, incoming) {
+  const merged = Object.assign({}, existing);
+  ['name', 'nameKana', 'company', 'companyKana', 'department', 'title', 'tel', 'mobile', 'fax', 'email', 'url', 'address', 'photo'].forEach(key => {
+    if (incoming[key]) merged[key] = incoming[key];
+  });
+  const memos = [existing.memo, incoming.memo].filter(Boolean);
+  merged.memo = Array.from(new Set(memos)).join('\n---\n');
+  merged.createdAt = Math.min(existing.createdAt || Date.now(), incoming.createdAt || Date.now());
+  merged.updatedAt = Date.now();
+  return merged;
+}
+
+function saveForm() {
+  const f = ui.formData;
+  const ids = ['name', 'nameKana', 'company', 'companyKana', 'department', 'title', 'tel', 'mobile', 'fax', 'email', 'url', 'address', 'memo'];
+  ids.forEach(key => {
+    const el = document.getElementById('f_' + key);
+    if (el) f[key] = el.value.trim();
+  });
+
+  const dup = findDuplicateByName(f.name, f.id);
+  if (dup) {
+    ui.pendingFormData = f;
+    ui.duplicateId = dup.id;
+    ui.modal = 'mergeConfirm';
+    renderModal();
+    return;
+  }
+  commitSave(f);
+}
+
+function commitSave(f) {
+  f.updatedAt = Date.now();
+  if (ui.isNewCard) {
+    state.cards.push(f);
+  } else {
+    const idx = state.cards.findIndex(x => x.id === f.id);
+    if (idx >= 0) state.cards[idx] = f;
+  }
+  saveState();
+  ui.modal = null; ui.formData = null; ui.pendingFormData = null; ui.duplicateId = null;
+  render();
+}
+
+// ---------- 撮影 → OCR ----------
+async function handleFileSelected(file) {
+  if (!file) return;
+  ui.modal = 'capture';
+  ui.ocrStatus = { pct: 0, label: '画像を準備中…' };
+  ui.pendingPhoto = null;
+  renderModal();
+
+  let worker = null;
+  try {
+    const rawDataUrl = await fileToDataUrl(file);
+    // 表示用は自然な解像度、OCR用はより高解像度+グレースケール/コントラスト強調して読み取り精度を上げる
+    const resized = await resizeImage(rawDataUrl, 1600, 0.85);
+    ui.pendingPhoto = resized;
+    renderModal();
+
+    if (typeof Tesseract === 'undefined') {
+      throw new Error('OCRライブラリの読み込みに失敗しました(ネット接続を確認してください)');
+    }
+
+    const ocrInput = await preprocessForOcr(resized);
+
+    worker = await Tesseract.createWorker('jpn+eng', 1, {
+      logger: (m) => {
+        if (m.status && typeof m.progress === 'number') {
+          ui.ocrStatus = { pct: m.progress, label: ocrStatusLabel(m.status) };
+          renderModal();
+        }
+      },
+    });
+    // 名刺は段落ではなく文字がまばらに散らばったレイアウトのため、
+    // 既定の「1ページの文章」想定(PSM 3)ではなく sparse text モード(PSM 11)にする
+    await worker.setParameters({ tessedit_pageseg_mode: '11' });
+    const ocrResult = await worker.recognize(ocrInput);
+    await worker.terminate();
+    worker = null;
+
+    const text = ocrResult.data.text || '';
+    const parsed = parseOcrText(text);
+    const card = blankCard();
+    Object.assign(card, parsed);
+    card.photo = resized;
+
+    ui.formData = card;
+    ui.isNewCard = true;
+    ui.modal = 'form';
+    renderModal();
+  } catch (err) {
+    console.error(err);
+    if (worker) { try { await worker.terminate(); } catch (e) { /* ignore */ } }
+    alert('文字の読み取りに失敗しました。手動で入力してください。\n(' + (err.message || err) + ')');
+    const card = blankCard();
+    card.photo = ui.pendingPhoto || '';
+    ui.formData = card;
+    ui.isNewCard = true;
+    ui.modal = 'form';
+    renderModal();
+  }
+}
+
+function ocrStatusLabel(status) {
+  const map = {
+    'loading tesseract core': 'エンジンを読み込み中…',
+    'initializing tesseract': '初期化中…',
+    'loading language traineddata': '言語データを読み込み中…',
+    'initializing api': '準備中…',
+    'recognizing text': '文字を認識中…',
+  };
+  return map[status] || status;
+}
+
+document.getElementById('cameraInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  handleFileSelected(file);
+});
+
+// ---------- 初期化 ----------
+loadState();
+render();
+</script>
+</body>
+</html>

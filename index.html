@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>名刺管理 - 撮影するだけでOCR自動入力、50音順に整理</title>
+<meta name="description" content="スマホで名刺を撮影するだけでOCRが氏名・会社名・連絡先を自動入力。50音順・氏名順・会社名順で整理できる無料の名刺管理アプリ。インストール不要、ブラウザだけで使えます。">
+<style>
+  :root {
+    --bg: #0f1420;
+    --panel: #1a2233;
+    --panel2: #232d42;
+    --border: #2a344a;
+    --accent: #5b8def;
+    --accent-dark: #3f6fd1;
+    --text: #e8ecf4;
+    --sub: #8b95ab;
+    --danger: #ef5350;
+    --success: #3ddc97;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif;
+    line-height: 1.7;
+  }
+  a { color: inherit; }
+  img { max-width: 100%; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+  header.site { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+  header.site .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; }
+  header.site .brand .emoji { font-size: 22px; }
+
+  .hero { padding: 56px 0 48px; text-align: center; }
+  .hero h1 { font-size: clamp(26px, 5vw, 40px); margin: 0 0 16px; font-weight: 800; letter-spacing: 0.01em; }
+  .hero h1 .accent { color: var(--accent); }
+  .hero p { color: var(--sub); font-size: 16px; max-width: 580px; margin: 0 auto 30px; }
+  .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: 14px 28px; border-radius: 12px; font-weight: 700; font-size: 15px;
+    text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform 0.15s ease;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: #0b0f18; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-secondary { background: var(--panel); color: var(--text); border-color: var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); }
+
+  section { padding: 56px 0; }
+  h2.section-title { text-align: center; font-size: 24px; margin: 0 0 36px; font-weight: 800; }
+
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .feature-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+  .feature-card .icon { font-size: 26px; margin-bottom: 10px; }
+  .feature-card h3 { margin: 0 0 8px; font-size: 15px; }
+  .feature-card p { margin: 0; color: var(--sub); font-size: 13.5px; }
+
+  .preview-wrap { display: flex; justify-content: center; }
+  .app-mock {
+    width: 100%; max-width: 380px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 18px; padding: 18px; box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+  }
+  .mock-header { font-weight: 800; font-size: 16px; margin-bottom: 10px; }
+  .mock-search {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 12px; font-size: 13px; color: var(--sub); margin-bottom: 10px;
+  }
+  .mock-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .mock-tabs span {
+    padding: 5px 12px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); color: var(--sub);
+  }
+  .mock-tabs span.active { background: var(--accent); border-color: var(--accent); color: #0b0f18; font-weight: 700; }
+  .mock-card {
+    display: flex; gap: 10px; align-items: center; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 8px;
+  }
+  .mock-card .thumb {
+    width: 40px; height: 40px; border-radius: 8px; background: var(--panel2);
+    display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .mock-card .name { font-size: 14px; font-weight: 700; }
+  .mock-card .kana { font-size: 10px; color: var(--sub); margin-left: 6px; }
+  .mock-card .company { font-size: 12px; color: var(--accent); margin-top: 2px; }
+  .mock-card .sub { font-size: 11px; color: var(--sub); margin-top: 2px; }
+
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; }
+  .step { text-align: center; }
+  .step .num {
+    width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: #0b0f18;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; margin: 0 auto 12px;
+  }
+  .step h3 { margin: 0 0 6px; font-size: 14.5px; }
+  .step p { margin: 0; color: var(--sub); font-size: 13px; }
+
+  .final-cta {
+    background: linear-gradient(135deg, var(--panel), var(--panel2));
+    border: 1px solid var(--border); text-align: center; border-radius: 20px; padding: 52px 24px;
+  }
+  .final-cta h2 { margin: 0 0 12px; font-size: 22px; }
+  .final-cta p { margin: 0 0 26px; color: var(--sub); }
+
+  .note {
+    max-width: 660px; margin: 0 auto; text-align: center; color: var(--sub); font-size: 13px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px;
+  }
+
+  footer { text-align: center; padding: 30px 0; color: var(--sub); font-size: 13px; }
+</style>
+</head>
+<body>
+
+  <header class="site">
+    <div class="wrap brand">
+      <span class="emoji">📇</span>
+      <span>名刺管理</span>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="wrap">
+      <h1>撮るだけで、<span class="accent">名刺が片付く。</span></h1>
+      <p>スマホのカメラで名刺を撮影するだけで、OCRが氏名・会社名・電話番号・メールなどを自動で読み取ります。50音順に整理でき、氏名や会社名でも並び替え可能。インストール不要、ブラウザだけで今すぐ使えます。</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="./app/index.html">今すぐアプリを起動する</a>
+        <a class="btn btn-secondary" href="#features">できることを見る</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <h2 class="section-title">できること</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="icon">📷</div>
+          <h3>撮影して自動入力</h3>
+          <p>スマホのカメラで名刺を撮るだけ。OCRが文字を読み取り、氏名・会社名・部署・役職・連絡先を自動でフォームに入力します。</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">📞</div>
+          <h3>固定電話/携帯を自動判別</h3>
+          <p>電話番号の先頭(070/080/090など)から、固定電話か携帯電話かを自動で振り分けます。</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🔤</div>
+          <h3>50音順に自動整理</h3>
+          <p>ふりがなをもとに50音順で並び替え。氏名順・会社名順への切り替えや、昇順/降順もワンタップです。</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🔍</div>
+          <h3>すぐに検索</h3>
+          <p>氏名・会社名・部署などでインクリメンタル検索。目的の名刺にすぐたどり着けます。</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🔗</div>
+          <h3>重複を統合</h3>
+          <p>同じ名前の名刺を追加しようとすると確認画面が表示され、既存データに統合するか選べます。</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">💾</div>
+          <h3>ブラウザに自動保存</h3>
+          <p>読み取った名刺データは、お使いの端末のブラウザ内(localStorage)に保存されます。サーバーには送信されません。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2 class="section-title">こんな画面で使えます</h2>
+      <div class="preview-wrap">
+        <div class="app-mock">
+          <div class="mock-header">📇 名刺管理</div>
+          <div class="mock-search">🔍 氏名・会社名で検索</div>
+          <div class="mock-tabs">
+            <span class="active">50音順</span>
+            <span>氏名順</span>
+            <span>会社名順</span>
+          </div>
+          <div class="mock-card">
+            <div class="thumb">🏢</div>
+            <div>
+              <div><span class="name">山田 太郎</span><span class="kana">やまだ たろう</span></div>
+              <div class="company">株式会社サンプル商事</div>
+              <div class="sub">営業部 部長 ・ 090-1234-5678</div>
+            </div>
+          </div>
+          <div class="mock-card">
+            <div class="thumb">🏢</div>
+            <div>
+              <div><span class="name">鈴木 一郎</span><span class="kana">すずき いちろう</span></div>
+              <div class="company">合同会社テスト</div>
+              <div class="sub">03-1234-5678</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2 class="section-title">使い方</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="num">1</div>
+          <h3>名刺を撮影</h3>
+          <p>「名刺を撮影/選択」ボタンからカメラを起動、または画像を選びます。</p>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <h3>自動入力を確認</h3>
+          <p>OCRが読み取った内容が自動で入力されるので、間違いがあれば修正します。</p>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <h3>保存</h3>
+          <p>保存ボタンを押すと一覧に追加されます。同じ名前があれば統合するか選べます。</p>
+        </div>
+        <div class="step">
+          <div class="num">4</div>
+          <h3>並び替えて活用</h3>
+          <p>50音順・氏名順・会社名順に切り替えて、必要な名刺をすぐに見つけられます。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="final-cta">
+        <h2>さっそく使ってみる</h2>
+        <p>インストール不要。ブラウザで開くだけですぐに使えます。</p>
+        <a class="btn btn-primary" href="./app/index.html">アプリを起動する</a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="note">
+        ※ 名刺データは端末のブラウザ内(localStorage)に保存される個人向けアプリです。端末やブラウザを変えるとデータは引き継がれません。<br>
+        ※ 文字認識(OCR)には外部ライブラリを読み込むため、初回利用時はインターネット接続が必要です。
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <p>名刺管理 &mdash; 個人開発</p>
+    </div>
+  </footer>
+
+</body>
+</html>
