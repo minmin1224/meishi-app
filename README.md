@@ -11,4 +11,4 @@ PWA(Progressive Web App)対応で、スマホのホーム画面に追加する�
 
 ## 公開URL
 
-GitHub Pagesで公開後、ここにURLを記載します。
+https://minmin1224.github.io/meishi-app/
