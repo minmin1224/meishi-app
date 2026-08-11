@@ -312,7 +312,9 @@ function parseOcrText(text) {
   const emailRe = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
   const urlRe = /(https?:\/\/[^\s]+|www\.[^\s]+)/i;
   const telRe = /0\d{1,4}[-−ー]?\d{1,4}[-−ー]?\d{3,4}/g;
-  const companyKw = /(株式会社|有限会社|合同会社|合資会社|一般社団法人|公益財団法人|財団法人|一般財団法人|特定非営利活動法人|Co\.,?\s?Ltd\.?|Corporation|Corp\.|Inc\.|LLC|LLP|K\.K\.|商事|商会|工業|興業|製作所|Group|Holdings)/i;
+  // 「株式会社」等の決まった接頭辞が付いていなくても、「会社」という文字が含まれていれば
+  // 会社名の行とみなす(OCRで接頭辞部分だけ読み落とされるケースへの対策)
+  const companyKw = /(会社|法人|Co\.,?\s?Ltd\.?|Corporation|Corp\.|Inc\.|LLC|LLP|K\.K\.|商事|商会|工業|興業|製作所|Group|Holdings)/i;
   const titleKw = /(代表取締役|取締役|執行役員|部長|課長|係長|主任|マネージャー|Manager|Director|President|CEO|CTO|COO|支店長|所長|室長|次長|理事|顧問)/i;
   const deptKw = /(部|課|室|グループ|チーム|事業部|本部)$/;
   // ひらがな/カタカナのみで構成された行(数字・漢字・記号を含まない) = ふりがなの可能性が高い
