@@ -247,7 +247,27 @@ function resizeImage(dataUrl, maxSize, quality) {
   });
 }
 
-// OCR認識率を上げるための前処理: グレースケール化 + コントラストの最大化(最小輝度〜最大輝度を0〜255に引き伸ばす)。
+// 大津の二値化法: グレースケール画像のヒストグラムから、文字(前景)と背景を
+// 最もよく分離する輝度しきい値を自動算出する(印刷文字OCRの前処理として標準的な手法)。
+function otsuThreshold(hist, total) {
+  let sum = 0;
+  for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, maxVar = 0, threshold = 127;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const varBetween = wB * wF * (mB - mF) * (mB - mF);
+    if (varBetween > maxVar) { maxVar = varBetween; threshold = t; }
+  }
+  return threshold;
+}
+
+// OCR認識率を上げるための前処理: グレースケール化 + 大津の二値化(自動しきい値で白黒にくっきり分離)。
 // 表示用の写真(カラー)はそのまま残し、OCRに渡す画像だけをこの関数で加工する。
 function preprocessForOcr(dataUrl) {
   return new Promise((resolve) => {
@@ -259,18 +279,18 @@ function preprocessForOcr(dataUrl) {
       ctx.drawImage(img, 0, 0);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const d = imageData.data;
-      const gray = new Uint8ClampedArray(d.length / 4);
-      let min = 255, max = 0;
+      const total = d.length / 4;
+      const gray = new Uint8ClampedArray(total);
+      const hist = new Array(256).fill(0);
       for (let i = 0, p = 0; i < d.length; i += 4, p++) {
         const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
         gray[p] = g;
-        if (g < min) min = g;
-        if (g > max) max = g;
+        hist[gray[p]]++;
       }
-      const range = Math.max(1, max - min);
+      const threshold = otsuThreshold(hist, total);
       for (let i = 0, p = 0; i < d.length; i += 4, p++) {
-        const stretched = Math.round((gray[p] - min) / range * 255);
-        d[i] = d[i + 1] = d[i + 2] = stretched;
+        const v = gray[p] >= threshold ? 255 : 0;
+        d[i] = d[i + 1] = d[i + 2] = v;
       }
       ctx.putImageData(imageData, 0, 0);
       resolve(canvas.toDataURL('image/jpeg', 0.92));
@@ -780,8 +800,8 @@ async function handleFileSelected(file) {
   let worker = null;
   try {
     const rawDataUrl = await fileToDataUrl(file);
-    // 表示用は自然な解像度、OCR用はより高解像度+グレースケール/コントラスト強調して読み取り精度を上げる
-    const resized = await resizeImage(rawDataUrl, 1600, 0.85);
+    // 表示用は自然な解像度、OCR用はより高解像度+二値化して読み取り精度を上げる
+    const resized = await resizeImage(rawDataUrl, 2000, 0.85);
     ui.pendingPhoto = resized;
     renderModal();
 
